@@ -1,15 +1,27 @@
 package com.example.networktest2;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
+
+
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -65,8 +77,40 @@ public class MainActivity extends Activity implements OnClickListener{
 	public void onClick(View v) {
 		switch(v.getId()){
 		case R.id.send_request:
-			sendRequestWithHttpURLConnection();
+			//sendRequestWithHttpURLConnection();
+			sendRequestWithHttpClient();
 		}
+		
+	}
+
+	private void sendRequestWithHttpClient() {
+		new Thread(new Runnable(){
+
+			@Override
+			public void run() {
+				try {
+					HttpClient httpClient=new DefaultHttpClient();
+					HttpGet httpGet=new HttpGet("https://api.heweather.com/x3/weather?cityid=CN101230510&key=dc908906531e4c38886eb3245eab890d");
+					HttpResponse httpResponse=httpClient.execute(httpGet);
+					if(httpResponse.getStatusLine().getStatusCode()==200){
+						//请求和响应都成功了
+						HttpEntity entity=httpResponse.getEntity();
+						String response=EntityUtils.toString(entity,"utf-8");
+						Log.v("TAG", "client_RESPONSE="+response);
+						Message message=new Message();
+						message.what=SHOW_RESPONSE;
+						message.obj=response.toString();
+						handler.sendMessage(message);
+					}
+				} catch (ClientProtocolException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				
+			}
+			
+		}).start();
 		
 	}
 
@@ -77,25 +121,31 @@ public class MainActivity extends Activity implements OnClickListener{
 			public void run() {
 				HttpURLConnection connection=null;
 				try{
-					URL url=new URL("http://www.baidu.com");
+					//android4.4下,地址末位是.html的用HttpURLConnection格式无法获取到response，只能用HttpClient替换
+					
+					//URL url=new URL("http://www.baidu.com");
+					URL url=new URL("https://api.heweather.com/x3/weather?cityid=CN101230510&key=dc908906531e4c38886eb3245eab890d");
+					
 					connection =(HttpURLConnection)url.openConnection();
 					connection.setRequestMethod("GET");
-					connection.setReadTimeout(8000);
-					connection.setConnectTimeout(8000);
-					InputStream in=connection.getInputStream();
+					connection.setReadTimeout(8000);					
+					InputStream in=connection.getInputStream();					
 					BufferedReader reader=new BufferedReader(new InputStreamReader(in));
 					StringBuilder response=new StringBuilder();
 					String line;
 					while((line=reader.readLine())!=null){
 						response.append(line);
 					}
+					Log.v("TAG", "connection_RESPONSE="+response);
 					Message message=new Message();
 					message.what=SHOW_RESPONSE;
 					message.obj=response.toString();
 					handler.sendMessage(message);
 				}catch(Exception e){
+					Log.v("TAG", "something wrong");
 					e.printStackTrace();
 				}finally{
+					
 					if(connection!=null){
 						connection.disconnect();
 					}
